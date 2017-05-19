@@ -1,0 +1,379 @@
+<html>
+<head>
+  <style type="text/css">
+	body { font-family: Arial, sans-serif; }
+	.center { margin-left: auto; margin-right: auto; width: 800px; }
+    span.title { font-size: 30px; font-weight: bold;}
+	.bold-green-font {
+    font-weight: bold;
+    color: green;
+  }
+
+  .bold-font {
+    font-weight: bold;
+  }
+
+  .right-text {
+    text-align: right;
+  }
+
+  .large-font {
+    font-size: 15px;
+  }
+
+  .italic-darkblue-font {
+    font-style: italic;
+    color: darkblue;
+  }
+
+  .italic-purple-font {
+    font-style: italic;
+    color: purple;
+  }
+
+  .underline-blue-font {
+    text-decoration: underline;
+    color: blue;
+  }
+
+  .gold-border {
+    border: 3px solid gold;
+  }
+
+  .deeppink-border {
+    border: 3px solid deeppink;
+  }
+
+  .orange-background {
+    background-color: orange;
+  }
+
+  .orchid-background {
+    background-color: orchid;
+  }
+
+  .beige-background {
+    background-color: beige;
+  }
+	#menu td { width: 160px; padding: 5px; border: solid black 1px; text-align: center; }
+	#menu table { border-collapse: collapse; border: solid black 1px;}
+	#menu a { color: #000; text-decoration: none; }
+  </style>
+
+  <script type='text/javascript' src="https://www.gstatic.com/charts/loader.js">
+	// For Google Charts API...
+  </script>
+  <script type='text/javascript'>
+	
+	google.charts.load('current', {'packages':['corechart','bar','table','chart','imagebarchart']});
+	//google.charts.setOnLoadCallback(drawChart);
+
+
+	function drawChart() {
+		
+		var container = document.getElementById('chart_div');
+		container.innerHTML = '<img src="https://data-gov.tw.rpi.edu/images/ajax-loader.gif" /><br /><br />Please wait... The query may take some time to complete.';
+		
+		var querytxt2 =	"PREFIX g1: <http://crime2016/> " +
+				"PREFIX g2: <http://crime2014/> " +
+				"PREFIX p2: <http://data.lacity.org/resource/azy9-n2gp/> " +
+				"PREFIX p1: <http://data.lacity.org/resource/ttiz-7an8/> " +
+				"SELECT ?o (COUNT(?s2) as ?2014) (COUNT(?s1) as ?2016) (if((?2016-?2014)<0,\"Decreased\",\"Increased\") as ?Status) " +
+				"WHERE " + 
+				"{ " +
+				"  { " +
+				"    GRAPH g1:{?s1 p1:status_desc ?o . }" +
+				"  } UNION " +
+				"  { " +
+				"    GRAPH g2:{?s2 p2:status_desc ?o . }" +
+				"  } " +
+				"  FILTER regex(?o,\"ARREST\",\"i\") " +
+				"} " +
+				"GROUP BY ?o";
+						
+						
+		var queryurl2 = "http://localhost:3030/ds/query?output=xml&" +
+				"query=" + encodeURIComponent(querytxt2);
+
+		var xmlquery2 = new XMLHttpRequest(); 
+
+		xmlquery2.open ('GET', queryurl2, false);
+
+		// probably need these headers
+		xmlquery2.setRequestHeader ('Content-type', 'application/x-www-form-urlencoded');
+		xmlquery2.setRequestHeader ("Accept", "application/sparql-results+xml");
+
+		// Set up callback to get the response asynchronously...
+		xmlquery2.onreadystatechange = function () {
+			if (xmlquery2.readyState == 4) {
+				if (xmlquery2.status == 200) {
+					// Results are in a string in 'xmlhttp.responseText', but we can't return it from this sub-function,
+					//   so work on it here...
+					strRespQ1 = new XMLSerializer().serializeToString( convertXML2GVDS( xmlquery2.responseXML ) );
+					strJSON = strRespQ1.replace(/(^google\.visualization\.Query\.setResponse\(|\)$)/g,'');
+					objKeysRegex = /({|,)(?:\s*)(?:')?([A-Za-z_$\.][A-Za-z0-9_ \-\.$]*)(?:')?(?:\s*):/g; // ...look for object names
+					strJSONnew = strJSON.replace( objKeysRegex, "$1\"$2\":" ); // ...all object names should be double quoted
+					strJSON = strJSONnew.replace(/\'/g, "\"");
+					//alert(strJSON);
+					objJSON = JSON.parse( strJSON) ;
+					data = new google.visualization.DataTable( objJSON.table );
+					//alert( data.toJSON() );
+
+					handleQueryResponse_now( data );
+				}
+				else {
+					// Some kind of error occurred...
+					alert("Sparql query error: " + xmlquery2.status + " " + xmlquery2.responseText);
+				}
+			}
+		}
+
+		// Send the query to the endpoint.
+		xmlquery2.send();        }
+
+	function drawChart1() {
+		
+		var container = document.getElementById('chart_div');
+		container.innerHTML = '<img src="https://data-gov.tw.rpi.edu/images/ajax-loader.gif" /><br /><br />Please wait... The query may take some time to complete.';
+		
+		var querytxt2 =	"PREFIX g1:<http://crime2016/> "+
+						"PREFIX g2:<http://crime2014/> "+
+						"PREFIX p2:<http://data.lacity.org/resource/azy9-n2gp/> "+
+						"PREFIX p1:<http://data.lacity.org/resource/ttiz-7an8/> "+
+						"SELECT ?o  (COUNT(?s2) as ?2014) (COUNT(?s1) as ?2016) (if((?2016-?2014)<0,\"Decreased\",\"Increased\") as ?Status) "+ 
+						"WHERE "+
+						"{ "+
+						"{ "+
+						"GRAPH g1:{?s1 p1:area_name ?o} } UNION { "+
+						"GRAPH g2:{?s2 p2:area_name ?o} }. "+
+						"} "+
+						"GROUP BY ?o";
+						
+						
+		var queryurl2 = "http://localhost:3030/ds/query?output=xml&" +
+				"query=" + encodeURIComponent(querytxt2);
+
+		var xmlquery2 = new XMLHttpRequest(); 
+
+		xmlquery2.open ('GET', queryurl2, false);
+
+		// probably need these headers
+		xmlquery2.setRequestHeader ('Content-type', 'application/x-www-form-urlencoded');
+		xmlquery2.setRequestHeader ("Accept", "application/sparql-results+xml");
+
+		// Set up callback to get the response asynchronously...
+		xmlquery2.onreadystatechange = function () {
+			if (xmlquery2.readyState == 4) {
+				if (xmlquery2.status == 200) {
+					// Results are in a string in 'xmlhttp.responseText', but we can't return it from this sub-function,
+					//   so work on it here...
+					strRespQ1 = new XMLSerializer().serializeToString( convertXML2GVDS( xmlquery2.responseXML ) );
+					strJSON = strRespQ1.replace(/(^google\.visualization\.Query\.setResponse\(|\)$)/g,'');
+					objKeysRegex = /({|,)(?:\s*)(?:')?([A-Za-z_$\.][A-Za-z0-9_ \-\.$]*)(?:')?(?:\s*):/g; // ...look for object names
+					strJSONnew = strJSON.replace( objKeysRegex, "$1\"$2\":" ); // ...all object names should be double quoted
+					strJSON = strJSONnew.replace(/\'/g, "\"");
+					//alert(strJSON);
+					objJSON = JSON.parse( strJSON) ;
+					data = new google.visualization.DataTable( objJSON.table );
+					//alert( data.toJSON() );
+
+					handleQueryResponse_now1( data );
+				}
+				else {
+					// Some kind of error occurred...
+					alert("Sparql query error: " + xmlquery2.status + " " + xmlquery2.responseText);
+				}
+			}
+		}
+
+		// Send the query to the endpoint.
+		xmlquery2.send();
+
+        }
+        
+        function drawChart2() {
+		
+		var container = document.getElementById('chart_div');
+		container.innerHTML = '<img src="https://data-gov.tw.rpi.edu/images/ajax-loader.gif" /><br /><br />Please wait... The query may take some time to complete.';
+		
+		var querytxt2 =	"PREFIX g1:<http://crime2016/> "+
+						"PREFIX g2:<http://crime2014/> "+
+						"PREFIX p2:<http://data.lacity.org/resource/azy9-n2gp/> "+
+						"PREFIX p1:<http://data.lacity.org/resource/ttiz-7an8/> "+
+	"SELECT ?o (COUNT(?s2) as ?2014) (COUNT(?s1) as ?2016) "+                                   
+						"WHERE "+
+						"{ "+
+						"{ "+
+						"GRAPH g1:{?s1 p1:crm_cd_desc ?o} } UNION { "+
+						"GRAPH g2:{?s2 p2:crm_cd_desc ?o} }. "+
+						"} "+
+						"GROUP BY  ?o";					
+						
+		var queryurl2 = "http://localhost:3030/ds/query?output=xml&" +
+				"query=" + encodeURIComponent(querytxt2);
+
+		var xmlquery2 = new XMLHttpRequest(); 
+
+		xmlquery2.open ('GET', queryurl2, false);
+
+		// probably need these headers
+		xmlquery2.setRequestHeader ('Content-type', 'application/x-www-form-urlencoded');
+		xmlquery2.setRequestHeader ("Accept", "application/sparql-results+xml");
+
+		// Set up callback to get the response asynchronously...
+		xmlquery2.onreadystatechange = function () {
+			if (xmlquery2.readyState == 4) {
+				if (xmlquery2.status == 200) {
+					// Results are in a string in 'xmlhttp.responseText', but we can't return it from this sub-function,
+					//   so work on it here...
+					strRespQ1 = new XMLSerializer().serializeToString( convertXML2GVDS( xmlquery2.responseXML ) );
+					strJSON = strRespQ1.replace(/(^google\.visualization\.Query\.setResponse\(|\)$)/g,'');
+					objKeysRegex = /({|,)(?:\s*)(?:')?([A-Za-z_$\.][A-Za-z0-9_ \-\.$]*)(?:')?(?:\s*):/g; // ...look for object names
+					strJSONnew = strJSON.replace( objKeysRegex, "$1\"$2\":" ); // ...all object names should be double quoted
+					strJSON = strJSONnew.replace(/\'/g, "\"");
+					//alert(strJSON);
+					objJSON = JSON.parse( strJSON) ;
+					data = new google.visualization.DataTable( objJSON.table );
+					//alert( data.toJSON() );
+
+					handleQueryResponse_now2( data );
+				}
+				else {
+					// Some kind of error occurred...
+					alert("Sparql query error: " + xmlquery2.status + " " + xmlquery2.responseText);
+				}
+			}
+		}
+
+		// Send the query to the endpoint.
+		xmlquery2.send();
+
+        }
+
+
+	
+
+
+
+
+
+
+
+	function handleQueryResponse_now(data) {
+		if (null == data)
+			return;
+		var rows = data.getNumberOfRows();
+		if (rows == 0)
+			return;
+		// alert( data.toJSON() );
+		
+		var options= {
+			title: 'Police Areest Recorded'
+		};var container = document.getElementById('chart_div');
+           var options = {cht: 'bvs', chs: '1000x125', colors:['#4D89F9','#C6D9FD']};
+		var chart = new google.charts.Bar(container);
+		//alert(newdata.toJSON());
+		chart.draw(data,options);
+
+
+
+	}
+
+	function handleQueryResponse_now1(data) {
+		if (null == data)
+			return;
+		var rows = data.getNumberOfRows();
+		if (rows == 0)
+			return;
+		//alert( data.toJSON() );
+		var container = document.getElementById('chart_div');
+           var options = {cht: 'bvs', chs: '1000x125', colors:['#4D89F9','#C6D9FD	']};
+		var chart = new google.charts.Bar(container);
+		//alert(newdata.toJSON());
+		chart.draw(data,options);
+	}
+
+	function handleQueryResponse_now2(data) {
+		if (null == data)
+			return;
+		var rows = data.getNumberOfRows();
+		if (rows == 0)
+			return;
+		//alert( data.toJSON() );
+		
+		var container = document.getElementById('chart_div');
+           var options = {cht: 'bvs', chs: '1000x125', colors:['#4D89F9','#C6D9FD']};
+		var chart = new google.charts.Bar(container);
+		//alert(newdata.toJSON());
+		chart.draw(data,options);
+}
+// ================================================================================
+// == Convert XML to Google Visualization                                        ==
+// ================================================================================
+
+	function loadXMLDoc(filename)
+	{
+		// Code for IE...
+		if (window.ActiveXObject)
+		{
+			xhttp = new ActiveXObject("Msxml2.XMLHTTP");
+		}
+		// Code for Chrome, Firefox, Opera, etc...
+		else
+		{
+			xhttp = new XMLHttpRequest();
+		}
+		xhttp.open("GET", filename, false);
+
+		// Probably need these headers...
+		//xhttp.setRequestHeader ('Content-type', 'application/x-www-form-urlencoded');
+		//xhttp.setRequestHeader ("Accept", "application/xml");
+		//xhttp.setRequestHeader("Access-Control-Allow-Methods", "GET,POST,PUT");
+
+		//try {xhttp.responseType = "msxml-document"} catch(err) {} // Helping IE11
+		xhttp.send();
+		return xhttp.responseXML;
+	}
+
+	function convertXML2GVDS(xml)
+	{
+		xsl = loadXMLDoc("https://data-gov.tw.rpi.edu/ws/sparqlxml2googlejson.xsl");
+		// Code for IE...
+		if (window.ActiveXObject || xhttp.responseType == "msxml-document")
+		{
+			resultDocument = xml.transformNode(xsl);
+			//document.getElementById("example").innerHTML = resultDocument;
+		}
+		// Code for Chrome, Firefox, Opera, etc...
+		else
+		{
+			xsltProcessor = new XSLTProcessor();
+			xsltProcessor.importStylesheet(xsl);
+			resultDocument = xsltProcessor.transformToFragment(xml, document);
+			//resultDocument = xsltProcessor.transformToDocument(xml);
+			//document.getElementById("example").appendChild(resultDocument);
+		}
+		return resultDocument;
+	}
+  </script>
+  <title>Crime 2014-16</title>
+</head>
+<body>
+	<h1 align="center">Crime Rate Analysis- LA(2014-16)</h1>
+	<div align="left">
+		<div id="top">
+				<button onclick="drawChart()">Police Arrests Record</button></br></br></br>
+				<button onclick="drawChart1()">Crimes per Area</button></br></br></br>
+				<button onclick="drawChart2()">Type of Crime Reporting</button></br></br></br>
+		</div>
+		<br />
+		
+		<header align="center" style="font-size: 20px">Data Visualization</header>
+		<div id="chart_div" style="width: 1500px; height: 800px;" align="center">
+		</div>
+		<br/><br/>
+		
+		
+</body>
+
+</html>
